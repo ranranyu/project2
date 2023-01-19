@@ -1,0 +1,44 @@
+void Encoder_DataAnalyzing(Encoder_TypeDef *Encoder)
+{
+	uint8_t frame_length;
+	uint16_t crc16_value;
+	uint16_t crc_check;
+//	int32_t data_value;
+	double data_value;
+	uint8_t i;
+	#ifdef LIFTING
+	double pi=3.141592654;
+	#endif
+	
+	frame_length = RS485_RxBuffer[2] + 3;
+	crc_check = RS485_RxBuffer[frame_length+1];
+	crc_check = RS485_RxBuffer[frame_length] + (crc_check<<8);
+	crc16_value = CRC16(RS485_RxBuffer, frame_length);
+	
+	if (crc16_value == crc_check)
+	{
+		Encoder -> Node = RS485_RxBuffer[0] - ENCODER_ADDR;
+		data_value = RS485_RxBuffer[3];
+		for (i=1; i<RS485_RxBuffer[2]; i++)
+		{
+			data_value = RS485_RxBuffer[i+3] + (data_value*256);
+		}
+		if (data_value > POSITIVE_MAX)
+		{
+			data_value = data_value - ENCODER_MAX;
+		}
+		
+		#ifdef LEVELING
+		Encoder -> Value = (int32_t) ((data_value*8*1000) / (1024*18));	//编码器精度10bit，齿比10:18，导程8mm，单位0.01mm
+		#endif
+		
+		#ifdef LIFTING
+		Encoder -> Value = (int32_t) ((data_value*35*7768*pi) / (1024*40*50));	//编码器精度10bit，齿比35:40，分度圆直径77.68mm，单位0.01mm
+		#endif
+		
+		get_device = DEV_ENCODER;
+//		HAL_UART_Transmit(huart_debug, RS485_RxBuffer, frame_length+2, 2);
+//		HAL_UART_Transmit(huart_debug, (uint8_t *)&(Encoder -> Value), 4, 2);
+		RS485_RxBuffer[frame_length] = 0;
+	}
+}
